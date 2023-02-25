@@ -27,6 +27,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		log.Printf("ioutil.ReadAll(r.Body) failed...\n")
 		return
 	}
+	defer r.Body.Close()
 	params := new(addParams)
 	json.Unmarshal(p, params)
 	res := add(params.X, params.Y)
@@ -39,6 +40,5 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/add", addHandler)
-
 	http.ListenAndServe(":18090", nil)
 }
