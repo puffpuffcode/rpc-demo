@@ -14,7 +14,7 @@ type server struct {
 	pb.UnimplementedGreeterServer
 }
 
-// to be imcomplemented
+// to be complement
 func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloResponse, error) {
 	reply := "Hello " + in.GetName()
 	return &pb.HelloResponse{Reply: reply}, nil
