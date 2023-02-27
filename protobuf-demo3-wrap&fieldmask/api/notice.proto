@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "protobuf_demo/api";
+
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/field_mask.proto";
+
+message Book {
+    string title = 1;
+    string author = 2;
+    optional string color = 6;
+    google.protobuf.Int64Value price = 3;
+    google.protobuf.DoubleValue sale_price = 4;
+    google.protobuf.StringValue memo = 5;
+
+    message Info {
+        string a = 1;
+        string b = 2;
+    }
+
+    Info info = 7;
+}
+
+message UpdateBookRequest {
+    string op = 1; // operator
+    Book book = 2;
+    google.protobuf.FieldMask update_mask = 3; // store fields will be updated
+}
