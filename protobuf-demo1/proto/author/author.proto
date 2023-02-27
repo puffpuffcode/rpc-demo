@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package author;
+
+option go_package = "shiopuff.github.io/protobuf_demo/proto/author";
+
+message Author {
+    string name = 1;
+}

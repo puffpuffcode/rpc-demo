@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package book;
+
+option go_package = "shiopuff.github.io/protobuf_demo/proto/book";
+
+import "book/price.proto"; // 同级目录下的导入，从 proto_path=xx 路径下开始写
+import "author/author.proto";
+import "google/protobuf/timestamp.proto"; 
+
+message Book {
+    string title = 1;
+    // 引用 price.proto
+    Price price = 2;
+    // 引用 author.proto
+    author.Author author = 3;
+    // 引入 时间戳
+    google.protobuf.Timestamp date = 4;
+}
+
+service BookService {
+    rpc CreateBook(Book) returns(Book);
+}

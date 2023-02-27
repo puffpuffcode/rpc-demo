@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package book; // 声明的是 proto 的包
+
+option go_package = "shiopuff.github.io/protobuf_demo/proto/book";
+
+message Price {
+    int64 market_price = 1;
+    int64 sale_price = 2;
+}
