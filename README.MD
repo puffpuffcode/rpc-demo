@@ -5,6 +5,9 @@ This is a demo repository for learning rpc.
     + /http implement by http protocol.
     + /tcp implement by tcp protocol.
     + /gob-json rpc in golang uses gob parsing by default, but can also be parsed by json.
++ grpc
+    + /hello_world first demo
+    + /add addServer & addClient
 
 ## do follow these steps
 ```
