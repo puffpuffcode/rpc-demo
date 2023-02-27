@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "protobuf-demo/api";
+
+message NoticeReaderRequest {
+    string msg = 1;
+    oneof notice_way {
+        string email = 2;
+        string phone = 3;
+    }
+}
