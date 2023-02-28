@@ -35,4 +35,7 @@ go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 
 # install protoc-gen-go-grpc
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# install to handle grpc status-err
+go install "google.golang.org/genproto/googleapis/rpc/errdetails"
 ```
