@@ -1,0 +1,27 @@
+syntax = "proto3"; // version
+
+option go_package = "code.xxx.com/client/hello/proto"; // mod path to create go code
+
+package pb; // proto file mod must be identical with the server part
+
+// claim service
+service Greeter {
+	// claim func
+	rpc SayHello (HelloRequest) returns (HelloResponse);
+	// stream
+	rpc MutiReplies (HelloRequest) returns (stream HelloResponse);
+	// stream
+
+	rpc MutiRequests (stream HelloRequest) returns (HelloResponse);
+	// 双向流式数据
+	rpc BidiHello(stream HelloRequest) returns (stream HelloResponse);
+}
+
+// claim msg
+message HelloRequest {
+	string name = 1; // param no
+}
+
+message HelloResponse {
+	string reply = 1;
+}
