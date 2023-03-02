@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package bookstore;
+
+option go_package = "bookstore/pb";
+
+import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
+
+
+// 书店管理 API
+service BookStore {
+    // 查询所有书架
+    rpc ListShelves(google.protobuf.Empty) returns (ListShelvesResponse){
+        option (google.api.http) = {
+            get: "/v1/shelves";
+        };
+    };
+    
+    // 创建新书架
+    rpc CreateShelf(CreateShelfRequest) returns (Shelf) {
+        option (google.api.http) = {
+            post: "/v1/shelf";
+            body: "shelf";
+        };
+    };
+
+    // 返回书店内指定的书架
+    rpc GetShelf(GetShelfRequest) returns (Shelf) {
+        option (google.api.http) = {
+            get: "/v1/shelf/{shelf}";
+        };
+    };
+
+    // 删除指定书架
+    rpc DeleteShelf(DeleteShelfRequest) returns (google.protobuf.Empty) {
+        option (google.api.http) = {
+            delete: "/v1/shelf/{shelf}";
+        };
+    };
+
+}
+
+message Shelf {
+    int64 id = 1;
+    string theme = 2;
+    int64 size = 3;
+}
+
+message Book {
+    int64 id = 1;
+    string author = 2;
+    string title = 3;
+}
+
+// 返回所有书架
+message ListShelvesResponse {
+   repeated Shelf shelves = 1; 
+}
+
+// 创建书架请求
+message CreateShelfRequest {
+    Shelf shelf = 1;
+}
+
+// 获取书架请求
+message GetShelfRequest {
+    int64 shelf = 1;
+}
+
+// 删除书架请求
+message DeleteShelfRequest {
+    int64 shelf = 1;
+}
