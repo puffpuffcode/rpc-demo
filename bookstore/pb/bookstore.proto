@@ -39,6 +39,21 @@ service BookStore {
         };
     };
 
+    // 查询书架上的书
+    rpc ListBooks(ListBooksRequest) returns (ListBooksResponse) {
+        option (google.api.http) = {
+            get: "/v1/shelf/{shelf}/books";
+        };
+    }
+
+    // 给某个书架上面放书
+    rpc CreateBook(CreateBookRequest) returns (CreateBookResponse) {
+        option (google.api.http) = {
+            post: "/v1/shelf/{shelf}/book";
+            body: "book";
+        };
+    }
+
 }
 
 message Shelf {
@@ -51,6 +66,7 @@ message Book {
     int64 id = 1;
     string author = 2;
     string title = 3;
+    int64 shelf_id = 4;
 }
 
 // 返回所有书架
@@ -71,4 +87,28 @@ message GetShelfRequest {
 // 删除书架请求
 message DeleteShelfRequest {
     int64 shelf = 1;
+}
+
+// 查询书本请求
+message ListBooksRequest {
+    int64 shelf = 1;
+    string page_token = 2;
+}
+
+// 查询书本响应
+message ListBooksResponse {
+    repeated Book books = 1;
+    string page_token = 2;
+}
+
+
+// 创建书本请求
+message CreateBookRequest {
+    int64 shelf = 1;
+    Book book = 2;
+}
+
+// 创建书本相应
+message CreateBookResponse {
+    Book book = 1;
 }

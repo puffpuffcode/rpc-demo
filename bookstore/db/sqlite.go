@@ -2,15 +2,18 @@ package db
 
 import (
 	"bookstore/model"
+	"bookstore/pb"
 	"context"
 	"errors"
+	"time"
 
-	"google.golang.org/genproto/googleapis/rpc/status"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
+
+
 
 func init() {
 	// 连接到数据库
@@ -59,6 +62,43 @@ func (b *BookStore) GetShelf(ctx context.Context, shelfID int64) (*model.Shelf, 
 
 // 删除一个书架
 func (b *BookStore) DeleteShelf(ctx context.Context, shelfID int64) error {
-	result := DB.Delete(&model.Shelf{}, shelfID)
+	result := DB.WithContext(ctx).Delete(&model.Shelf{}, shelfID)
 	return result.Error
+}
+
+// 查询某个书架上的书的信息（可选分页)
+func (b *BookStore) ListBooks(ctx context.Context, shelfID int64, nextID string, pageSize int64) ([]*model.Book, error) {
+	// 查询数据库中是否有这个书架
+	// 如果没有则返回错误
+	if _, err := b.GetShelf(ctx, shelfID); errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, gorm.ErrRecordNotFound
+	}
+	// 条件查询
+	var books []*model.Book
+	res := DB.WithContext(ctx).Where("shelf_id = ? and id > ? ", shelfID, nextID).Order("id asc").Limit(int(pageSize)).Find(&books)
+	return books, res.Error
+}
+
+// 创建一本书，加入书架
+func (b *BookStore) CreateBook(ctx context.Context, req *pb.CreateBookRequest) (*model.Book, error) {
+	// 查询数据库中是否有这个书架
+	// 如果没有则返回错误
+	if _, err := b.GetShelf(ctx, req.GetShelf()); errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, gorm.ErrRecordNotFound
+	}
+	// 查询这本书是否在书架
+	if !errors.Is(DB.WithContext(ctx).First(&model.Book{ID: req.GetBook().Id}).Error, gorm.ErrRecordNotFound) {
+		return nil, gorm.ErrRegistered
+	}
+	// 加入书架
+	book := &model.Book{
+		ID:        req.Book.GetId(),
+		Author:    req.Book.GetAuthor(),
+		Title:     req.Book.GetTitle(),
+		ShelfID:   req.Book.GetShelfId(),
+		CreateAt:  time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	result := DB.WithContext(ctx).Create(book)
+	return book, result.Error
 }

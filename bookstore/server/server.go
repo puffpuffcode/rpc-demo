@@ -5,6 +5,10 @@ import (
 	"bookstore/model"
 	"bookstore/pb"
 	"context"
+	"errors"
+
+	"strconv"
+
 	"log"
 	"net"
 	"net/http"
@@ -17,6 +21,13 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrNotFound error = errors.New("source not found")
+
+	DefaultPageSize   int64  = 5
+	DefaultPageNextID string = "0"
 )
 
 type server struct {
@@ -70,7 +81,7 @@ func (s *server) ListShelves(ctx context.Context, emptypb *emptypb.Empty) (*pb.L
 		log.Printf("BookStore.ListShelves err: %v\n", err)
 		return nil, status.Errorf(codes.Internal, "Get BookStore.ListShelves ERROR")
 	}
-	respShelves := make([]*pb.Shelf,0,len(shelves))
+	respShelves := make([]*pb.Shelf, 0, len(shelves))
 	for _, sf := range shelves {
 		respShelves = append(respShelves, &pb.Shelf{
 			Id:    sf.ID,
@@ -89,7 +100,7 @@ func (s *server) CreateShelf(ctx context.Context, req *pb.CreateShelfRequest) (*
 	reqShelf := req.GetShelf()
 	// 参数检查
 	if reqShelf.Theme == "" {
-		return nil, status.Error(codes.InvalidArgument,"reqShelf.Theme is invalid.")
+		return nil, status.Error(codes.InvalidArgument, "reqShelf.Theme is invalid.")
 	}
 	shelf := model.Shelf{
 		ID:        reqShelf.Id,
@@ -131,11 +142,87 @@ func (s *server) GetShelf(ctx context.Context, req *pb.GetShelfRequest) (*pb.She
 // 删除一个书架
 func (s *server) DeleteShelf(ctx context.Context, req *pb.DeleteShelfRequest) (*emptypb.Empty, error) {
 	if req.GetShelf() <= 0 {
-		return nil, status.Errorf(codes.InvalidArgument,"id is <= 0")
+		return nil, status.Errorf(codes.InvalidArgument, "id is <= 0")
 	}
 	err := s.bookStore.DeleteShelf(ctx, req.GetShelf())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "BookStore.DeleteShelf err: %v", err)
 	}
 	return &emptypb.Empty{}, nil
+}
+
+// 创建一本书
+func (s *server) CreateBook(ctx context.Context, req *pb.CreateBookRequest) (*pb.CreateBookResponse, error) {
+	// 检查参数
+	if req.GetShelf() <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "req.Shelf <= 0")
+	}
+	// 将书加入书架
+	bookResp, err := s.bookStore.CreateBook(ctx, req)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &pb.CreateBookResponse{}, status.Errorf(codes.Internal, "not a shelf")
+	} else if errors.Is(err, gorm.ErrRegistered) {
+		return &pb.CreateBookResponse{}, status.Error(codes.AlreadyExists, err.Error())
+	}
+	return &pb.CreateBookResponse{
+		Book: &pb.Book{
+			Id:      bookResp.ID,
+			Author:  bookResp.Author,
+			Title:   bookResp.Title,
+			ShelfId: bookResp.ShelfID,
+		},
+	}, nil
+}
+
+// 查询书
+func (s *server) ListBooks(ctx context.Context, req *pb.ListBooksRequest) (*pb.ListBooksResponse, error) {
+	// 检查参数
+	shelfID := req.GetShelf()
+	if shelfID <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "invalid id")
+	}
+	var resBooks []*model.Book
+	var page model.Page
+	var err error
+	// 如果 page_token == ""
+	if req.GetPageToken() == "" {
+		// 默认第一页
+		resBooks, err = s.bookStore.ListBooks(ctx, shelfID, DefaultPageNextID, DefaultPageSize+1)
+		page.PageSize = DefaultPageSize
+	} else {
+		// page_token 无效
+		page = model.Token(req.GetPageToken()).Decode()
+		if page.IsInVaild() {
+			return nil, status.Errorf(codes.InvalidArgument, "invaild token")
+		}
+		// 有效，获取分页
+		resBooks, err = s.bookStore.ListBooks(ctx, shelfID, page.NextID, page.PageSize+1)
+	}
+	// 统一处理 error
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "")
+	}
+	// 拼接响应结果
+	respBooks := make([]*pb.Book, 0, len(resBooks))
+	for _, v := range resBooks {
+		respBooks = append(respBooks, &pb.Book{
+			Id:      v.ID,
+			Author:  v.Author,
+			Title:   v.Title,
+			ShelfId: v.ShelfID,
+		})
+	}
+	// 还有数据，更新 token
+	if len(resBooks) > int(page.PageSize) {
+		page.NextTimeAtUTC = time.Now().Unix()
+		page.NextID = strconv.Itoa(int(respBooks[len(respBooks)-1].Id))
+		return &pb.ListBooksResponse{
+			Books:     respBooks,
+			PageToken: string(page.Encode()),
+		}, nil
+	}
+	return &pb.ListBooksResponse{
+		Books:     respBooks,
+		PageToken: "",
+	}, nil
 }

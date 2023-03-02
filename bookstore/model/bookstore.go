@@ -21,6 +21,7 @@ type Book struct {
 	ID int64 `gorm:"primaryKey"`
 	Author string
 	Title string
+	ShelfID int64
 	CreateAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt
