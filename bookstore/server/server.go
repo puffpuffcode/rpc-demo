@@ -6,15 +6,17 @@ import (
 	"bookstore/pb"
 	"context"
 	"errors"
+	"net/http"
+	"strings"
 
 	"strconv"
 
 	"log"
-	"net"
-	"net/http"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,43 +38,58 @@ type server struct {
 }
 
 func StartServer() {
-	// 启动端口监听
-	l, err := net.Listen("tcp", ":19090")
-	if err != nil {
-		log.Fatalf("net.Listen failed: %v\n", err)
-	}
 	// 创建 RPC 服务
 	s := grpc.NewServer()
 	// 绑定服务
 	pb.RegisterBookStoreServer(s, &server{bookStore: &db.BookStore{}})
 
-	log.Fatalln(s.Serve(l))
-}
-
-func StartHttpProxy() {
-	conn, err := grpc.DialContext(
-		context.Background(),
+	// 同一个端口处理 http 和 grpc 请求
+	// gateway 服务，转发到 19090 端口
+	gwmux := runtime.NewServeMux()
+	dops := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	if err := pb.RegisterBookStoreHandlerFromEndpoint(context.Background(), gwmux, ":19090", dops); err != nil {
+		log.Fatalln("RegisterBookStoreHandlerFromEndpoint err:", err.Error())
+	}
+	http.ListenAndServe(
 		":19090",
-		grpc.WithBlock(),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpcHandlerFunc(s, gwmux),
 	)
-	if err != nil {
-		log.Fatalln("grpc.DialContext err:", conn)
-	}
-	defer conn.Close()
-
-	sm := runtime.NewServeMux()
-	if err = pb.RegisterBookStoreHandler(context.Background(), sm, conn); err != nil {
-		log.Fatalln("pb.RegisterBookStoreHandler err:", err)
-	}
-
-	s := &http.Server{
-		Addr:    ":19191",
-		Handler: sm,
-	}
-
-	log.Fatalln(s.ListenAndServe())
 }
+
+func grpcHandlerFunc(grpcServer *grpc.Server, otherHandler http.Handler) http.Handler {
+	return h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+			grpcServer.ServeHTTP(w, r)
+		} else {
+			otherHandler.ServeHTTP(w, r)
+		}
+	}), &http2.Server{})
+}
+
+// func StartHttpProxy() {
+// 	conn, err := grpc.DialContext(
+// 		context.Background(),
+// 		":19090",
+// 		grpc.WithBlock(),
+// 		grpc.WithTransportCredentials(insecure.NewCredentials()),
+// 	)
+// 	if err != nil {
+// 		log.Fatalln("grpc.DialContext err:", conn)
+// 	}
+// 	defer conn.Close()
+
+// 	sm := runtime.NewServeMux()
+// 	if err = pb.RegisterBookStoreHandler(context.Background(), sm, conn); err != nil {
+// 		log.Fatalln("pb.RegisterBookStoreHandler err:", err)
+// 	}
+
+// 	s := &http.Server{
+// 		Addr:    ":19191",
+// 		Handler: sm,
+// 	}
+
+// 	log.Fatalln(s.ListenAndServe())
+// }
 
 // 查询所有书架
 func (s *server) ListShelves(ctx context.Context, emptypb *emptypb.Empty) (*pb.ListShelvesResponse, error) {
