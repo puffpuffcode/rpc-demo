@@ -20,7 +20,7 @@ type myResolver struct {
 }
 
 func (r *myResolver) ResolveNow(resolver.ResolveNowOptions) {
-	addrStrs := r.addrsStore[myEndPoint]
+	addrStrs := r.addrsStore[r.target.Endpoint()]
 	addrList := make([]resolver.Address, len(addrStrs))
 	for i, s := range addrStrs {
 		addrList[i] = resolver.Address{Addr: s}
