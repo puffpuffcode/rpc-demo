@@ -54,19 +54,27 @@ func SimpleWayToInvoke() {
 }
 
 func ElegantWayToInvoce() {
-	c, err := grpc.Dial(`consul://localhost:8500/hello_server?healthy=true`, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	c, err := grpc.Dial(
+		`consul://localhost:8500/hello_server?healthy=true`,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
+	)
 	if err != nil {
 		log.Fatalln("grpc dial failed:", err.Error())
 	}
 	defer c.Close()
 	gc := proto.NewGreeterClient(c)
-	ctx, cf := context.WithCancel(context.Background())
-	defer cf()
-	resp, err := gc.SayHello(ctx, &proto.HelloRequest{
-		Name: "makito",
-	})
-	if err != nil {
-		log.Fatalln("sayHello err:", err.Error())
+
+	for i := 0; i < 10; i++ {
+		ctx, cf := context.WithCancel(context.Background())
+		defer cf()
+		resp, err := gc.SayHello(ctx, &proto.HelloRequest{
+			Name: "makito",
+		})
+		if err != nil {
+			log.Fatalln("sayHello err:", err.Error())
+		}
+		log.Printf("resp: %s", resp.GetReply())
 	}
-	log.Printf("resp: %s", resp.GetReply())
+
 }
